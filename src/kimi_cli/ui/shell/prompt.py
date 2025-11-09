@@ -18,7 +18,7 @@ from typing import override
 
 from kosong.message import ContentPart, ImageURLPart, TextPart
 from PIL import Image, ImageGrab
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.application.current import get_app_or_none
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
 from prompt_toolkit.completion import (
@@ -490,10 +490,11 @@ class CustomPromptSession:
             self._last_history_content = history_entries[-1].content
 
         # Build completers
+        file_mention_completer = FileMentionCompleter(Path.cwd())
         self._agent_mode_completer = merge_completers(
             [
                 MetaCommandCompleter(),
-                FileMentionCompleter(Path.cwd()),
+                file_mention_completer,
             ],
             deduplicate=True,
         )
@@ -501,6 +502,14 @@ class CustomPromptSession:
         # Build key bindings
         _kb = KeyBindings()
         shortcut_hints: list[str] = []
+
+        @_kb.add("escape", "l", eager=True)
+        def _list_contents_of_cwd(event: KeyPressEvent) -> None:
+            """Lists the contents of the current directory."""
+            content_list = file_mention_completer._get_top_level_paths()
+            event.app.output.write("\n")
+            print_formatted_text(*content_list, sep="  ")
+            event.app.invalidate()
 
         @_kb.add("enter", filter=has_completions)
         def _accept_completion(event: KeyPressEvent) -> None:
